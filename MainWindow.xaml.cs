@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using ST10449143_PROGPOEPART3;
 
-namespace ST10449143_PROGPOEPART3
+namespace ST10449143_PROGPOEPart3
 {
     public partial class MainWindow : Window
     {
