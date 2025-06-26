@@ -1,340 +1,153 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using ST10449143_PROGPOEPART3;
 
-namespace ST10449143_PROGPOEPart3
+namespace ST10449143_PROGPOEPART3
 {
-    public partial class MainWindow : Window
+    public class NLPProcessor
     {
-        public class CyberTask
+        public enum NlpIntent
         {
+            None,
+            AddTask,
+            SetReminder,
+            ViewTasks,
+            CompleteTask,
+            DeleteTask,
+            StartQuiz,
+            ShowHelp,
+            Exit,
+            ShowActivityLog // New intent for activity log
+        }
+
+        public class NlpResult
+        {
+            public NlpIntent Intent { get; set; }
             public string Title { get; set; }
-            public string Description { get; set; }
-            public DateTime? ReminderDate { get; set; }
-            public bool IsCompleted { get; set; }
-
-            public override string ToString()
-            {
-                return $"{(IsCompleted ? "[✔] " : "[ ] ")}{Title} - {Description}" +
-                       (ReminderDate.HasValue ? $" (Reminder: {ReminderDate.Value:dd MMM yyyy})" : "");
-            }
         }
 
-        private PreviousWork chatbot;
-        private List<CyberTask> tasks = new List<CyberTask>();
-        private CyberTask pendingTask = null;
-        private CyberSecurityQuiz cyberQuiz;
-        private NLPProcessor nlpProcessor;
-        private List<string> userActions = new List<string>();
-
-        public MainWindow()
+        public NlpResult AnalyzeInput(string input)
         {
-            InitializeComponent();
-            InitializeApplicationComponents();
-        }
-
-        private void InitializeApplicationComponents()
-        {
-            chatbot = new PreviousWork("User", AddMessage);
-            cyberQuiz = new CyberSecurityQuiz(AddMessage);
-            nlpProcessor = new NLPProcessor();
-        }
-
-        private void SendButton_Click(object sender, RoutedEventArgs e)
-        {
-            string input = InputBox.Text.Trim();
-            InputBox.Text = "";
-
-            if (string.IsNullOrWhiteSpace(input)) return;
-
-            AddMessage($"> {input}", Brushes.DarkGray);
-
-            if (cyberQuiz.IsQuizActive)
-            {
-                cyberQuiz.ProcessAnswer(input);
-                return;
-            }
-
-            if (pendingTask != null && input.StartsWith("remind me in ", StringComparison.OrdinalIgnoreCase))
-            {
-                ProcessReminderInput(input);
-                return;
-            }
-
-            if (TryProcessExplicitTaskCommand(input))
-            {
-                return;
-            }
-
-            var nlpResult = nlpProcessor.AnalyzeInput(input);
-
-            switch (nlpResult.Intent)
-            {
-                case NLPProcessor.NlpIntent.SetReminder:
-                    HandleDirectReminder(nlpResult.Title);
-                    return;
-
-                case NLPProcessor.NlpIntent.AddTask:
-                    HandleAddTask(nlpResult.Title);
-                    return;
-
-                case NLPProcessor.NlpIntent.ViewTasks:
-                    HandleViewTasks();
-                    return;
-
-                case NLPProcessor.NlpIntent.CompleteTask:
-                    HandleCompleteTask(nlpResult.Title);
-                    return;
-
-                case NLPProcessor.NlpIntent.DeleteTask:
-                    HandleDeleteTask(nlpResult.Title);
-                    return;
-
-                case NLPProcessor.NlpIntent.StartQuiz:
-                    cyberQuiz.StartQuiz();
-                    return;
-
-                case NLPProcessor.NlpIntent.ShowHelp:
-                    HelpMenu.Show(AddMessage);
-                    return;
-
-                case NLPProcessor.NlpIntent.Exit:
-                    Application.Current.Shutdown();
-                    return;
-            }
-
-            if (input.ToLower().Contains("what have you done for me") ||
-                input.ToLower().Contains("show my actions") ||
-                input.ToLower().Contains("recent activity"))
-            {
-                if (userActions.Count == 0)
-                {
-                    AddMessage("I haven't done anything for you yet. Try adding a task or setting a reminder.", Brushes.Gray);
-                }
-                else
-                {
-                    AddMessage("Here's a summary of recent actions:", Brushes.Orange);
-                    int count = 1;
-                    foreach (var action in userActions)
-                    {
-                        AddMessage($"{count++}. {action}", Brushes.SlateBlue);
-                    }
-                }
-                return;
-            }
-
-            chatbot.ProcessInput(input);
-        }
-
-        private bool TryProcessExplicitTaskCommand(string input)
-        {
-            if (input.StartsWith("complete task ", StringComparison.OrdinalIgnoreCase))
-            {
-                string title = input.Substring("complete task ".Length).Trim();
-                HandleCompleteTask(title);
-                return true;
-            }
-
-            if (input.StartsWith("delete task ", StringComparison.OrdinalIgnoreCase))
-            {
-                string title = input.Substring("delete task ".Length).Trim();
-                HandleDeleteTask(title);
-                return true;
-            }
-
-            if (input.StartsWith("add task ", StringComparison.OrdinalIgnoreCase))
-            {
-                string title = input.Substring("add task ".Length).Trim();
-                HandleAddTask(title);
-                return true;
-            }
-
-            if (input.Equals("view tasks", StringComparison.OrdinalIgnoreCase))
-            {
-                HandleViewTasks();
-                return true;
-            }
-
-            return false;
-        }
-
-        private void HandleAddTask(string title)
-        {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                AddMessage("Please specify what task you'd like to add.", Brushes.Red);
-                return;
-            }
-
-            var task = new CyberTask
-            {
-                Title = title,
-                Description = $"Review: {title} to ensure your cybersecurity is strong.",
-                IsCompleted = false
-            };
-
-            tasks.Add(task);
-            pendingTask = task;
-
-            AddMessage($"Task added: \"{task.Description}\". Would you like a reminder? (e.g., 'Remind me in 3 days')", Brushes.Green);
-            userActions.Add($"Task added: '{task.Title}' (no reminder set)");
-        }
-
-        private void HandleDirectReminder(string title)
-        {
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                AddMessage("Please specify what you'd like me to remind you about.", Brushes.Red);
-                return;
-            }
-
-            // Try to detect "tomorrow"
-            DateTime reminderDate;
-            if (title.Contains("tomorrow"))
-            {
-                reminderDate = DateTime.Now.AddDays(1);
-                title = title.Replace("tomorrow", "").Trim();
-            }
-            else if (TryExtractDays(title, out int days, out string cleanTitle))
-            {
-                reminderDate = DateTime.Now.AddDays(days);
-                title = cleanTitle;
-            }
-            else
-            {
-                // Default to tomorrow
-                reminderDate = DateTime.Now.AddDays(1);
-            }
-
-            var reminder = new CyberTask
-            {
-                Title = title,
-                Description = $"Reminder: {title}",
-                ReminderDate = reminderDate,
-                IsCompleted = false
-            };
-
-            tasks.Add(reminder);
-            AddMessage($"Reminder set for '{title}' on {reminderDate:dd MMM yyyy}.", Brushes.SteelBlue);
-            userActions.Add($"Reminder set for '{title}' on {reminderDate:dd MMM yyyy}");
-        }
-
-        private void ProcessReminderInput(string input)
-        {
-            if (TryParseReminder(input, out DateTime reminder))
-            {
-                pendingTask.ReminderDate = reminder;
-                AddMessage($"Got it! I'll remind you on {reminder:dd MMM yyyy}.", Brushes.Blue);
-                userActions.Add($"Reminder set for '{pendingTask.Title}' on {reminder:dd MMM yyyy}");
-            }
-            else
-            {
-                AddMessage("Sorry, I couldn't understand the reminder format. Try: 'Remind me in 3 days'", Brushes.Red);
-            }
-
-            pendingTask = null;
-        }
-
-        private bool TryParseReminder(string input, out DateTime reminderDate)
-        {
-            reminderDate = DateTime.MinValue;
             input = input.ToLower().Trim().Replace(".", "").Replace("?", "");
 
-            if (!input.StartsWith("remind me in")) return false;
+            // Check for activity log command first
+            if (IsActivityLogCommand(input, out var activityLogResult))
+                return activityLogResult;
 
-            string numberPart = input.Replace("remind me in", "")
-                                     .Replace("days", "")
-                                     .Replace("day", "")
-                                     .Trim();
+            // Prioritize task management commands
+            if (IsTaskCommand(input, out var taskResult))
+                return taskResult;
 
-            return int.TryParse(numberPart, out int days) &&
-                   (reminderDate = DateTime.Now.AddDays(days)) != DateTime.MinValue;
+            // Then check for other commands
+            if (IsGeneralCommand(input, out var generalResult))
+                return generalResult;
+
+            return new NlpResult { Intent = NlpIntent.None };
         }
 
-        private bool TryExtractDays(string input, out int days, out string cleanTitle)
+        private bool IsActivityLogCommand(string input, out NlpResult result)
         {
-            days = 0;
-            cleanTitle = input;
+            result = new NlpResult { Intent = NlpIntent.None };
 
-            string lower = input.ToLower();
-            int index = lower.IndexOf("in ");
-            if (index != -1)
+            if (input.Contains("show activity log") ||
+                input.Contains("what have you done") ||
+                input.Contains("show my actions") ||
+                input.Contains("recent activity") ||
+                input.Contains("activity history"))
             {
-                string afterIn = lower.Substring(index + 3);
-                string[] parts = afterIn.Split(' ');
-                if (parts.Length > 0 && int.TryParse(parts[0], out days))
-                {
-                    cleanTitle = lower.Replace($"in {days} days", "")
-                                      .Replace($"in {days} day", "")
-                                      .Replace($"in {days}", "").Trim();
-                    return true;
-                }
+                result.Intent = NlpIntent.ShowActivityLog;
+                return true;
             }
 
             return false;
         }
 
-        private void HandleViewTasks()
+        private bool IsTaskCommand(string input, out NlpResult result)
         {
-            if (tasks.Count == 0)
+            result = new NlpResult { Intent = NlpIntent.None };
+
+            // Reminder command should come BEFORE AddTask
+            if (input.StartsWith("remind me to") || input.StartsWith("set a reminder to"))
             {
-                AddMessage("You have no tasks. Try: 'Add task - Check password settings'", Brushes.Gray);
+                result.Intent = NlpIntent.SetReminder;
+                result.Title = ExtractAfter(input, new[] { "remind me to", "set a reminder to" });
+                return true;
             }
-            else
+
+            // Delete task commands (highest priority for task management)
+            if (input.Contains("delete task") || input.Contains("remove task") ||
+                input.Contains("erase task") || input.Contains("cancel task"))
             {
-                AddMessage("Here are your tasks:", Brushes.DarkGreen);
-                foreach (var task in tasks)
+                result.Intent = NlpIntent.DeleteTask;
+                result.Title = ExtractAfter(input, new[] { "delete task", "remove task", "erase task", "cancel task" });
+                return true;
+            }
+
+            // Complete task commands
+            if (input.Contains("complete task") || input.Contains("mark task") ||
+                input.Contains("finish task") || input.Contains("task done"))
+            {
+                result.Intent = NlpIntent.CompleteTask;
+                result.Title = ExtractAfter(input, new[] { "complete task", "mark task", "finish task", "task done" });
+                return true;
+            }
+
+            // Add task commands
+            if (input.Contains("add task") || input.Contains("create task") ||
+                input.Contains("new task") || input.Contains("set task") ||
+                input.Contains("remind me to") || input.Contains("set a reminder to"))
+            {
+                result.Intent = NlpIntent.AddTask;
+                result.Title = ExtractAfter(input, new[] { "add task", "create task", "new task", "set task", "remind me to", "set a reminder to" });
+                return true;
+            }
+
+            // View tasks commands
+            if (input.Contains("view tasks") || input.Contains("show tasks") ||
+                input.Contains("list tasks") || input.Contains("my tasks"))
+            {
+                result.Intent = NlpIntent.ViewTasks;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsGeneralCommand(string input, out NlpResult result)
+        {
+            result = new NlpResult { Intent = NlpIntent.None };
+
+            if (input.Contains("start quiz") || input.Contains("begin quiz") || input.Contains("quiz time"))
+            {
+                result.Intent = NlpIntent.StartQuiz;
+                return true;
+            }
+
+            if (input.Contains("help") || input.Contains("what can i ask") || input.Contains("show help"))
+            {
+                result.Intent = NlpIntent.ShowHelp;
+                return true;
+            }
+
+            if (input.Contains("exit") || input.Contains("quit") || input.Contains("close bot"))
+            {
+                result.Intent = NlpIntent.Exit;
+                return true;
+            }
+
+            return false;
+        }
+
+        private string ExtractAfter(string input, string[] phrases)
+        {
+            foreach (var phrase in phrases)
+            {
+                if (input.Contains(phrase))
                 {
-                    AddMessage(task.ToString(), task.IsCompleted ? Brushes.Gray : Brushes.DeepSkyBlue);
+                    int index = input.IndexOf(phrase);
+                    return input.Substring(index + phrase.Length).Trim();
                 }
             }
-        }
-
-        private void HandleCompleteTask(string title)
-        {
-            var task = tasks.Find(t => t.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase));
-            if (task != null)
-            {
-                task.IsCompleted = true;
-                AddMessage($"Task \"{task.Title}\" marked as completed.", Brushes.Green);
-            }
-            else
-            {
-                AddMessage($"No task found with title \"{title}\".", Brushes.Red);
-            }
-        }
-
-        private void HandleDeleteTask(string title)
-        {
-            var task = tasks.Find(t => t.Title.Trim().Equals(title, StringComparison.OrdinalIgnoreCase));
-            if (task != null)
-            {
-                tasks.Remove(task);
-                AddMessage($"Task \"{task.Title}\" deleted.", Brushes.Red);
-            }
-            else
-            {
-                AddMessage($"No task found with title \"{title}\".", Brushes.Red);
-            }
-        }
-
-        private void AddMessage(string message, Brush color = null)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                var textBlock = new TextBlock
-                {
-                    Text = message,
-                    Foreground = color ?? Brushes.Black,
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(0, 5, 0, 0)
-                };
-                ChatPanel.Children.Add(textBlock);
-                ChatScrollViewer.ScrollToEnd();
-            });
+            return string.Empty;
         }
     }
 }
