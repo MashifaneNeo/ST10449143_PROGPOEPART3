@@ -170,7 +170,8 @@ namespace ST10449143_PROGPOEPart3
             var task = new CyberTask
             {
                 Title = title,
-                Description = $"Review: {title} to ensure your cybersecurity is strong.",
+                Description = $" '{title}' has been add" +
+                $" to ensure the intergrity of your cybersecurity",
                 IsCompleted = false
             };
 
