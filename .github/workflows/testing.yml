@@ -27,11 +27,11 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore ST10449143_PROGPOEPART3/ST10449143_PROGPOEPART3.sln
+        run: dotnet restore POE Part 3 PROG 6221/POE Part 3 PROG 6221.sln
 
       - name: Build solution
-        run: dotnet build ST10449143_PROGPOEPART3/ST10449143_PROGPOEPART3.sln --no-restore --configuration Release
+        run: dotnet build POE Part 3 PROG 6221/POE Part 3 PROG 6221.sln --no-restore --configuration Release
 
       - name: Run tests (optional)
-        run: dotnet test ST10449143_PROGPOEPART3/ST10449143_PROGPOEPART3.sln --no-build --verbosity normal
+        run: dotnet test POE Part 3 PROG 6221/POE Part 3 PROG 6221.sln --no-build --verbosity normal
         continue-on-error: true  # Remove if you want the build to fail on test errors
